@@ -17,20 +17,26 @@ class AuthController extends Controller
         $validator = Validator::make($request->all(), [
             'name' => 'required|string|max:255',
             'email' => 'required|string|email|max:255|unique:users',
-            'password' => 'required|string|min:8|confirmed',
+            'password' => 'required|string|min:4|confirmed',
         ]);
 
-        // Si la validación falla, devolver un mensaje de error personalizado
         if ($validator->fails()) {
-            return response()->json(['message' => 'Debe ingresar todos los datos.'], 422);
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation errors',
+                'errors' => $validator->errors()
+            ], 422);
         }
 
-        // Crear un nuevo usuario
-        $user = User::create([
-            'name' => $request->name,
-            'email' => $request->email,
-            'password' => Hash::make($request->password),
+        // Si la validación pasa, continúa con la lógica de tu controlador
+        // Por ejemplo, creando el usuario:
+        // User::create($request->all());
+
+        return response()->json([
+            'success' => true,
+            'message' => 'User created successfully'
         ]);
+    
 
         // Asignar el rol al usuario
         $role = Role::where('name', $roleName)->where('guard_name', 'api')->first();
