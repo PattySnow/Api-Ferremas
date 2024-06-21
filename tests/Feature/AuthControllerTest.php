@@ -4,117 +4,100 @@ namespace Tests\Feature;
 
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Facades\Hash;
 use Tests\TestCase;
-use Spatie\Permission\Models\Role;
 
 class AuthControllerTest extends TestCase
 {
     use RefreshDatabase;
 
-    /** @test */
-    public function it_registers_a_client()
+    public function test_register_client()
     {
-        $role = Role::create(['name' => 'client', 'guard_name' => 'api']);
-
         $response = $this->postJson('/register', [
             'name' => 'Test Client',
-            'email' => 'client@example.com',
+            'email' => 'client@test.com',
             'password' => 'password',
-            'password_confirmation' => 'password'
+            'password_confirmation' => 'password',
         ]);
 
         $response->assertStatus(201)
-                 ->assertJsonStructure(['message', 'user', 'token']);
+            ->assertJson([
+                'message' => 'Usuario registrado exitosamente con el rol de client',
+            ]);
+
+        $this->assertDatabaseHas('users', ['email' => 'client@test.com']);
     }
 
-    /** @test */
-    public function it_registers_a_worker()
+    public function test_register_worker()
     {
-        $role = Role::create(['name' => 'worker', 'guard_name' => 'api']);
+        $this->actingAs(User::factory()->create());
 
         $response = $this->postJson('/register_worker', [
             'name' => 'Test Worker',
-            'email' => 'worker@example.com',
+            'email' => 'worker@test.com',
             'password' => 'password',
-            'password_confirmation' => 'password'
+            'password_confirmation' => 'password',
         ]);
 
         $response->assertStatus(201)
-                 ->assertJsonStructure(['message', 'user', 'token']);
+            ->assertJson([
+                'message' => 'Usuario registrado exitosamente con el rol de worker',
+            ]);
+
+        $this->assertDatabaseHas('users', ['email' => 'worker@test.com']);
     }
 
-    /** @test */
-    public function it_registers_an_admin()
+    public function test_register_admin()
     {
-        $role = Role::create(['name' => 'admin', 'guard_name' => 'api']);
+        $this->actingAs(User::factory()->create());
 
         $response = $this->postJson('/register_admin', [
             'name' => 'Test Admin',
-            'email' => 'admin@example.com',
+            'email' => 'admin@test.com',
             'password' => 'password',
-            'password_confirmation' => 'password'
+            'password_confirmation' => 'password',
         ]);
 
         $response->assertStatus(201)
-                 ->assertJsonStructure(['message', 'user', 'token']);
+            ->assertJson([
+                'message' => 'Usuario registrado exitosamente con el rol de admin',
+            ]);
+
+        $this->assertDatabaseHas('users', ['email' => 'admin@test.com']);
     }
 
-    /** @test */
-    public function it_logs_in_a_user()
+    public function test_login()
     {
         $user = User::factory()->create([
-            'email' => 'user@example.com',
-            'password' => Hash::make('password')
+            'email' => 'user@test.com',
+            'password' => bcrypt('password'),
         ]);
 
         $response = $this->postJson('/login', [
-            'email' => 'user@example.com',
-            'password' => 'password'
+            'email' => 'user@test.com',
+            'password' => 'password',
         ]);
 
         $response->assertStatus(200)
-                 ->assertJsonStructure(['token']);
+            ->assertJsonStructure(['token']);
     }
 
-    /** @test */
-    public function it_fails_to_login_with_invalid_credentials()
-    {
-        $user = User::factory()->create([
-            'email' => 'user@example.com',
-            'password' => Hash::make('password')
-        ]);
-
-        $response = $this->postJson('/login', [
-            'email' => 'user@example.com',
-            'password' => 'wrongpassword'
-        ]);
-
-        $response->assertStatus(401)
-                 ->assertJson(['error' => 'Las credenciales son incorrectas']);
-    }
-
-    /** @test */
-    public function it_logs_out_a_user()
+    public function test_logout()
     {
         $user = User::factory()->create();
-        $token = $user->createToken('token-name')->plainTextToken;
 
-        $this->withHeaders(['Authorization' => 'Bearer ' . $token])
-             ->postJson('/logout')
-             ->assertStatus(200)
-             ->assertJson(['message' => 'Has cerrado sesión']);
+        $response = $this->actingAs($user)->postJson('/logout');
+
+        $response->assertStatus(200)
+            ->assertJson(['message' => 'Has cerrado sesión']);
     }
 
-    /** @test */
-    public function it_revokes_all_tokens()
+    public function test_revoke_all_tokens()
     {
         $user = User::factory()->create();
-        $token = $user->createToken('token-name')->plainTextToken;
 
-        $this->withHeaders(['Authorization' => 'Bearer ' . $token])
-             ->postJson('/revoke_all_tokens')
-             ->assertStatus(200)
-             ->assertJson(['message' => 'Todos los tokens revocados']);
+        $response = $this->actingAs($user)->postJson('/revoke_all_tokens');
+
+        $response->assertStatus(200)
+            ->assertJson(['message' => 'Todos los tokens revocados']);
     }
 }

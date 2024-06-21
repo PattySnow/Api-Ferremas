@@ -22,7 +22,7 @@ return new class extends Migration
 
             $table->foreign('user_id')->references('id')->on('users')->onDelete('cascade');
             $table->foreign('branch_id')->references('id')->on('branches')->onDelete('cascade');
-            $table->foreign('delivery_type_id')->references('id')->on('delivery_types')->onDelete('set null');
+     
 
 
             
@@ -35,6 +35,10 @@ return new class extends Migration
      */
     public function down(): void
     {
+        Schema::table('carts', function (Blueprint $table) {
+            $table->dropForeign(['branch_id']); // Elimina la clave foránea primero
+        });
+
         Schema::dropIfExists('carts');
     }
 };
