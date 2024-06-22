@@ -28,7 +28,7 @@ use App\Http\Controllers\ShippingOrderController;
 //Rutas para autenticación
 
 Route::post('/register', [AuthController::class, 'register']); //Registra a un cliente
-Route::post('/register_worker', [AuthController::class, 'registerWorker'])->middleware('auth:sanctum', 'customRole:admin'); //Registra a un trabajador
+Route::post('/register_employed', [AuthController::class, 'registerEmployed'])->middleware('auth:sanctum', 'customRole:admin'); //Registra a un trabajador
 Route::post('/register_admin', [AuthController::class, 'registerAdmin'])->middleware('auth:sanctum', 'customRole:admin'); //Registra a un administrador
 Route::post('/login', [AuthController::class, 'login']); //Loggea a un usuario
 Route::post('/logout', [AuthController::class, 'logout'])->middleware('auth:sanctum'); //Logout a un usuario

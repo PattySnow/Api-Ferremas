@@ -6,13 +6,14 @@ use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Validation\ValidationException;
 use Illuminate\Support\Facades\Validator;
 use Spatie\Permission\Models\Role;
+use Illuminate\Validation\ValidationException;
+use Illuminate\Http\JsonResponse;
 
 class AuthController extends Controller
 {
-    private function registerUser(Request $request, $roleName)
+    private function registerUser(Request $request, $roleName): JsonResponse
     {
         $validator = Validator::make($request->all(), [
             'name' => 'required|string|max:255',
@@ -28,15 +29,12 @@ class AuthController extends Controller
             ], 422);
         }
 
-        // Si la validación pasa, continúa con la lógica de tu controlador
-        // Por ejemplo, creando el usuario:
-        // User::create($request->all());
-
-        return response()->json([
-            'success' => true,
-            'message' => 'User created successfully'
+        // Crear el usuario
+        $user = User::create([
+            'name' => $request->name,
+            'email' => $request->email,
+            'password' => Hash::make($request->password),
         ]);
-    
 
         // Asignar el rol al usuario
         $role = Role::where('name', $roleName)->where('guard_name', 'api')->first();
@@ -56,49 +54,49 @@ class AuthController extends Controller
         ], 201);
     }
 
-    public function register(Request $request)
+    public function register(Request $request): JsonResponse
     {
         return $this->registerUser($request, 'client');
     }
 
-    public function registerWorker(Request $request)
+    public function registerEmployed(Request $request): JsonResponse
     {
-        return $this->registerUser($request, 'worker');
+        return $this->registerUser($request, 'employed');
     }
 
-    public function registerAdmin(Request $request)
+    public function registerAdmin(Request $request): JsonResponse
     {
         return $this->registerUser($request, 'admin');
     }
 
-    public function login(Request $request)
+    public function login(Request $request): JsonResponse
     {
         $request->validate([
             'email' => 'required|string|email',
             'password' => 'required|string',
         ]);
-    
-        // Intentar autenticar al usuario
-        if (!Auth::attempt($request->only('email', 'password'))) {
-            // Si las credenciales son incorrectas, enviar un mensaje de error personalizado
-            return response()->json(['error' => 'Las credenciales son incorrectas'], 401);
+
+        $user = User::where('email', $request->email)->first();
+
+        if (!$user || !Hash::check($request->password, $user->password)) {
+            throw ValidationException::withMessages([
+                'email' => ['The provided credentials are incorrect.'],
+            ]);
         }
-    
-        // Si las credenciales son correctas, generar un token y devolverlo en la respuesta
-        $user = Auth::user();
+
         $token = $user->createToken('token-name')->plainTextToken;
-    
+
         return response()->json(['token' => $token], 200);
     }
 
-    public function logout(Request $request)
+    public function logout(Request $request): JsonResponse
     {
         $request->user()->currentAccessToken()->delete();
 
         return response()->json(['message' => 'Has cerrado sesión'], 200);
     }
 
-    public function revokeAllTokens(Request $request)
+    public function revokeAllTokens(Request $request): JsonResponse
     {
         $request->user()->tokens()->delete();
 

@@ -17,7 +17,7 @@ class Branch extends Model
         return $this->hasMany(Inventory::class);
     }
 
-    public function Items()
+    public function items()
     {
         return $this->belongsToMany(Item::class, 'inventories')
                     ->withPivot('quantity');

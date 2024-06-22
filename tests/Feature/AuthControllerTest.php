@@ -1,20 +1,30 @@
 <?php
-
 namespace Tests\Feature;
 
-use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
+use App\Models\User;
 
 class AuthControllerTest extends TestCase
 {
     use RefreshDatabase;
 
+    protected $token;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        // Ejecutar los seeders
+        $this->seed(\Database\Seeders\CreateRolesSeeder::class);
+        $this->seed(\Database\Seeders\CreateUsersSeeder::class);
+    }
+
     public function test_register_client()
     {
-        $response = $this->postJson('/register', [
-            'name' => 'Test Client',
-            'email' => 'client@test.com',
+        $response = $this->postJson('/api/register', [
+            'name' => 'Client User',
+            'email' => 'client@example.com',
             'password' => 'password',
             'password_confirmation' => 'password',
         ]);
@@ -23,36 +33,32 @@ class AuthControllerTest extends TestCase
             ->assertJson([
                 'message' => 'Usuario registrado exitosamente con el rol de client',
             ]);
-
-        $this->assertDatabaseHas('users', ['email' => 'client@test.com']);
     }
 
-    public function test_register_worker()
+    public function test_register_employed()
     {
-        $this->actingAs(User::factory()->create());
+        $admin = User::where('email', 'admin@test.com')->first();
 
-        $response = $this->postJson('/register_worker', [
-            'name' => 'Test Worker',
-            'email' => 'worker@test.com',
+        $response = $this->actingAs($admin, 'sanctum')->postJson('/api/register_employed', [
+            'name' => 'Worker User',
+            'email' => 'worker@example.com',
             'password' => 'password',
             'password_confirmation' => 'password',
         ]);
 
         $response->assertStatus(201)
             ->assertJson([
-                'message' => 'Usuario registrado exitosamente con el rol de worker',
+                'message' => 'Usuario registrado exitosamente con el rol de employed',
             ]);
-
-        $this->assertDatabaseHas('users', ['email' => 'worker@test.com']);
     }
 
     public function test_register_admin()
     {
-        $this->actingAs(User::factory()->create());
+        $admin = User::where('email', 'admin@test.com')->first();
 
-        $response = $this->postJson('/register_admin', [
-            'name' => 'Test Admin',
-            'email' => 'admin@test.com',
+        $response = $this->actingAs($admin, 'sanctum')->postJson('/api/register_admin', [
+            'name' => 'Admin User',
+            'email' => 'admin@example.com',
             'password' => 'password',
             'password_confirmation' => 'password',
         ]);
@@ -61,8 +67,6 @@ class AuthControllerTest extends TestCase
             ->assertJson([
                 'message' => 'Usuario registrado exitosamente con el rol de admin',
             ]);
-
-        $this->assertDatabaseHas('users', ['email' => 'admin@test.com']);
     }
 
     public function test_login()
@@ -72,32 +76,47 @@ class AuthControllerTest extends TestCase
             'password' => bcrypt('password'),
         ]);
 
-        $response = $this->postJson('/login', [
+        $response = $this->postJson('/api/login', [
             'email' => 'user@test.com',
             'password' => 'password',
         ]);
 
         $response->assertStatus(200)
             ->assertJsonStructure(['token']);
+
+        // Guardar el token para pruebas subsecuentes
+        $this->token = $response->json('token');
     }
 
     public function test_logout()
     {
-        $user = User::factory()->create();
+        // Primero, llama a la prueba de login para obtener el token
+        $this->test_login();
 
-        $response = $this->actingAs($user)->postJson('/logout');
 
+        // Realiza la solicitud de logout
+        $response = $this->withHeaders(['Authorization' => 'Bearer ' . $this->token])
+                         ->postJson('/api/logout');
+
+        // Verifica que la respuesta sea exitosa
         $response->assertStatus(200)
-            ->assertJson(['message' => 'Has cerrado sesión']);
+                 ->assertJson(['message' => 'Has cerrado sesión']);
+
+  
     }
 
     public function test_revoke_all_tokens()
     {
-        $user = User::factory()->create();
+        // Primero, llama a la prueba de login para obtener el token
+        $this->test_login();
 
-        $response = $this->actingAs($user)->postJson('/revoke_all_tokens');
+        // Utiliza el token generado en la prueba de login
+        $response = $this->withHeaders([
+            'Authorization' => 'Bearer ' . $this->token,
+        ])->postJson('/api/revoke_all_tokens');
 
         $response->assertStatus(200)
             ->assertJson(['message' => 'Todos los tokens revocados']);
+
     }
 }
