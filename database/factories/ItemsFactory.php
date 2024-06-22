@@ -6,7 +6,7 @@ use App\Models\Item;
 use App\Models\Category;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
-class ItemFactory extends Factory
+class ItemsFactory extends Factory
 {
     /**
      * The name of the factory's corresponding model.
