@@ -14,4 +14,6 @@ class RoleFactory extends Factory
         return [
             'name' => $this->faker->unique()->word,
             'guard_name' => 'api',
+        ];
+    }
 }

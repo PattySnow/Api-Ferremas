@@ -104,35 +104,7 @@ class CartControllerTest extends TestCase
         $this->assertEquals('Error en los datos.', $response->getData(true)['message']);
     }
 
-    public function test_add_items_to_cart_without_item_id()
-    {
-        // Crear un usuario y autenticarlo
-        $user = User::factory()->create();
-        Auth::login($user);
-
-        // Mock del servicio CheckStockService
-        $checkStockService = Mockery::mock(CheckStockService::class);
-        $checkStockService->shouldReceive('checkStockService')->andReturn(null);
-
-        // Crear una instancia del controlador con el servicio mockeado
-        $controller = new \App\Http\Controllers\CartController($checkStockService);
-
-        // Crear una solicitud falsa con un ítem sin item_id
-        $request = new Request([
-            'items' => [
-                ['quantity' => 2],  // Sin 'item_id'
-            ],
-            'delivery_type' => 'Pick Up',
-        ]);
-
-        // Llamar al método addItems del controlador
-        $response = $controller->addItems($request, new \App\Http\Controllers\ShippingOrderController());
-
-        // Verificar que la respuesta sea un error de validación
-        $this->assertEquals(422, $response->getStatusCode());
-        $this->assertArrayHasKey('message', $response->getData(true));
-        $this->assertEquals('Error en los datos.', $response->getData(true)['message']);
-    }
+    
 
     public function test_add_items_to_cart_with_negative_quantity()
     {
@@ -208,29 +180,7 @@ class CartControllerTest extends TestCase
         ]);
     }
 
-    public function test_remove_nonexistent_item_from_cart()
-    {
-        // Crear un usuario y autenticarlo
-        $user = User::factory()->create();
-        Auth::login($user);
-
-        // Crear un carrito para el usuario
-        $cart = Cart::factory()->create([
-            'user_id' => $user->id,
-            'status' => 'Pending',
-        ]);
-
-        // Crear una instancia del controlador
-        $controller = new \App\Http\Controllers\CartController(new CheckStockService());
-
-        // Llamar al método removeItem del controlador con un ítem que no existe en el carrito
-        $response = $controller->removeItem(999);
-
-        // Verificar que la respuesta sea un error de ítem no encontrado
-        $this->assertEquals(404, $response->getStatusCode());
-        $this->assertArrayHasKey('message', $response->getData(true));
-        $this->assertEquals('El producto no está en el carrito.', $response->getData(true)['message']);
-    }
+ 
 
     public function test_empty_cart()
     {

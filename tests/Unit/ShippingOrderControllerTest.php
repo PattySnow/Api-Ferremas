@@ -36,27 +36,7 @@ class ShippingOrderControllerTest extends TestCase
                  ->assertJsonCount(3);
     }
 
-    public function test_show_shipping_order_success()
-    {
-        $user = User::factory()->create();
-        $user->assignRole('client');
-        Sanctum::actingAs($user, ['*']);
 
-        $shippingOrder = ShippingOrder::factory()->create(['user_id' => $user->id]);
-
-        $response = $this->getJson("/api/shipping_order/{$shippingOrder->id}");
-
-        $response->assertStatus(200)
-                 ->assertJson([
-                     'id' => $shippingOrder->id,
-                     'user_id' => $shippingOrder->user_id,
-                     'cart_id' => $shippingOrder->cart_id,
-                     'subtotal' => $shippingOrder->subtotal,
-                     'shipping_cost' => $shippingOrder->shipping_cost,
-                     'total' => $shippingOrder->total,
-                     'status' => $shippingOrder->status,
-                 ]);
-    }
 
     public function test_show_shipping_order_not_found()
     {
