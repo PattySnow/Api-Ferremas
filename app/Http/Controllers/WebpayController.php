@@ -35,7 +35,7 @@ class WebpayController extends Controller
         }
 
         // Encontrar el último carrito asociado al usuario (el más reciente)
-        $cart = $user->cart()
+        $cart = $user->carts()
             ->where('status', 'Pending')
             ->latest()
             ->first();

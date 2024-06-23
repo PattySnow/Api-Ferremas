@@ -2,23 +2,22 @@
 
 namespace Database\Factories;
 
-use App\Models\Cart;
+use App\Models\Order;
 use App\Models\User;
-use App\Models\Branch;
+use App\Models\Cart;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
-class CartFactory extends Factory
+class OrderFactory extends Factory
 {
-    protected $model = Cart::class;
+    protected $model = Order::class;
 
     public function definition()
     {
         return [
             'user_id' => User::factory(),
-            'branch_id' => Branch::factory(),
+            'cart_id' => Cart::factory(),
+            'total' => $this->faker->numberBetween(1000, 9000),
             'status' => 'Pending',
-            'delivery_type' => 'Pick Up',
-            'total' => 0,
         ];
     }
 }

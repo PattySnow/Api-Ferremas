@@ -2,10 +2,13 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+
 
 class Cart extends Model
 {
+    use HasFactory;
     protected $table = 'carts'; // Especificar el nombre de la tabla si es diferente al nombre convencional
     
     protected $fillable = [
@@ -13,6 +16,7 @@ class Cart extends Model
         'branch_id',
         'total',
         'status',
+        'delivery_type'
     ];
 
     // Relación con productos a través de CarritoProducto

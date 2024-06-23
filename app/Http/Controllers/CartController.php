@@ -25,13 +25,12 @@ class CartController extends Controller
     private function getCart()
     {
         $user = Auth::user();
-        return $user->cart()->where('status', 'Pending')->first();
+        return $user->carts()->where('status', 'Pending')->first();
     }
 
     private function calculateAmount(Cart $cart)
     {
-        $total = $cart->items->sum('pivot.subtotal');
-        return $total;
+        return $cart->items->sum('pivot.subtotal');
     }
 
     public function showCart()
@@ -57,7 +56,7 @@ class CartController extends Controller
             'items' => $cart->items->map(function ($item) {
                 return [
                     'item_id' => $item->id,
-                    'name' => $item->name, // Asegúrate de ajustar el campo según tu estructura de Producto
+                    'name' => $item->name,
                     'quantity' => $item->pivot->quantity,
                     // Otros detalles del producto que desees mostrar
                 ];
@@ -66,7 +65,6 @@ class CartController extends Controller
 
         return response()->json($response, 200);
     }
-
 
     public function addItems(Request $request, ShippingOrderController $shippingOrderController)
     {
@@ -83,23 +81,22 @@ class CartController extends Controller
 
         $cart = $this->getCart();
 
+        if ($cart && $cart->user_id !== Auth::id()) {
+            return response()->json(['message' => 'No tienes permiso para agregar productos a este carrito.'], 403);
+        }
+
         if (!$cart) {
-            $user = Auth::user();
             $cart = Cart::create([
-                'user_id' => $user->id,
+                'user_id' => Auth::id(),
                 'branch_id' => 1,
                 'status' => 'Pending',
                 'delivery_type' => 'Pick Up',
             ]);
         }
 
-        if ($cart->user_id !== Auth::id()) {
-            return response()->json(['message' => 'No tienes permiso para agregar productos a este carrito.'], 403);
-        }
-
-        $checkStockService = $this->checkStockService->checkStockService($request->input('items'), $cart->branch_id);
-        if ($checkStockService) {
-            return $checkStockService;
+        $stockCheckResponse = $this->checkStockService->checkStockService($request->input('items'), $cart->branch_id);
+        if ($stockCheckResponse) {
+            return $stockCheckResponse;
         }
 
         $items = $request->input('items');
@@ -153,8 +150,6 @@ class CartController extends Controller
         return response()->json(['message' => 'Productos agregados al carrito', 'total' => $total], 200);
     }
 
-
-
     public function removeItem($item_id)
     {
         $cart = $this->getCart();
@@ -207,7 +202,6 @@ class CartController extends Controller
 
         return response()->json(['message' => 'El carrito ha sido vaciado correctamente.'], 200);
     }
-
 
     public function changeBranch($branch_id)
     {

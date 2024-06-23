@@ -22,6 +22,10 @@ class Branch extends Model
         return $this->belongsToMany(Item::class, 'inventories')
                     ->withPivot('quantity');
     }
-
+    
+    public function carts()
+    {
+        return $this->hasMany(Cart::class);
+    }
     
 }

@@ -15,7 +15,6 @@ class ShippingOrderController extends Controller
         return response()->json($shippingOrders);
     }
 
-
     public function createFromCart($cart, $subtotal, $shipping_cost, $total)
     {
         return ShippingOrder::create([
@@ -50,4 +49,14 @@ class ShippingOrderController extends Controller
         return response()->json($shippingOrder);
     }
 
+    /**
+     * Remove the specified resource from storage.
+     */
+    public function destroy(string $id)
+    {
+        $shippingOrder = ShippingOrder::findOrFail($id);
+        $shippingOrder->delete();
+
+        return response()->json(['message' => 'Orden de envío eliminada con éxito'], 200);
+    }
 }

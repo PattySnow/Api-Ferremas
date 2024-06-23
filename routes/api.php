@@ -1,4 +1,5 @@
 <?php
+
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\AuthController;
@@ -50,7 +51,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
 Route::middleware(['auth:sanctum', 'customRole:admin'])->group(function () {
     Route::prefix('roles')->group(function () {
         Route::get('/', [RoleController::class, 'index']); // Obtiene los roles registrados
-        Route::post('/', [RoleController::class, 'store']);//crear rol
+        Route::post('/', [RoleController::class, 'store']); //crear rol
         Route::get('/{id}', [RoleController::class, 'show']); // Obtiene un rol en específico
         Route::put('/{id}', [RoleController::class, 'update']); // Actualiza los datos del rol
         Route::delete('/{id}', [RoleController::class, 'destroy']); // Elimina un rol
@@ -64,28 +65,28 @@ Route::middleware(['auth:sanctum', 'customRole:admin'])->group(function () {
 Route::middleware(['auth:sanctum', 'customRole:admin'])->group(function () {
     Route::prefix('permissions')->group(function () {
         Route::get('/', [PermissionController::class, 'index']); //obtiene los permisos registrados
-        Route::post('/', [PermissionController::class, 'store']);//crear permiso
+        Route::post('/', [PermissionController::class, 'store']); //crear permiso
         Route::get('/{id}', [PermissionController::class, 'show']); //obtiene un permiso en especifico
         Route::put('/{id}', [PermissionController::class, 'update']); //actualiza los datos del permiso
         Route::delete('/{id}', [PermissionController::class, 'destroy']); //elimina un permiso
-        Route::post('/assing_rol/{role_id}', [PermissionController::class, 'assignPermissionToRole']);//Asignar permisos a un rol
-        Route::post('/assign_user/{user_id}', [PermissionController::class, 'assignPermissionToUser']);//Asignar permisos a un usuario
+        Route::post('/assing_rol/{role_id}', [PermissionController::class, 'assignPermissionToRole']); //Asignar permisos a un rol
+        Route::post('/assign_user/{user_id}', [PermissionController::class, 'assignPermissionToUser']); //Asignar permisos a un usuario
         Route::post('/revoke/{roleId}', [PermissionController::class, 'revokePermissionFromRole']); // Revoca permiso de un rol
         Route::post('/revoke/user/{userId}', [PermissionController::class, 'revokePermissionFromUser']); // Revoca permiso de un usuario
-    
+
     });
 });
 
 
 // Rutas para productos
-
 Route::prefix('items')->group(function () {
     Route::get('/', [ItemController::class, 'index']); // Obtiene todos los productos
     Route::get('/{id}', [ItemController::class, 'show']); // Obtiene un producto
-    Route::post('/', [ItemController::class, 'store'])->middleware('customRole:admin'); // Crea un producto
-    Route::put('/{id}', [ItemController::class, 'update'])->middleware('customRole:admin'); // Actualiza un producto
-    Route::delete('/{id}', [ItemController::class, 'destroy'])->middleware('customRole:admin'); // Elimina un producto
+    Route::post('/', [ItemController::class, 'store'])->middleware(['auth:sanctum', 'customRole:admin']); // Crea un producto
+    Route::put('/{id}', [ItemController::class, 'update'])->middleware(['auth:sanctum', 'customRole:admin']); // Actualiza un producto
+    Route::delete('/{id}', [ItemController::class, 'destroy'])->middleware(['auth:sanctum', 'customRole:admin']); // Elimina un producto
 });
+
 
 
 // Rutas para categoría de los productos
@@ -148,15 +149,19 @@ Route::any('/webpay/confirm', [WebpayController::class, 'confirm'])->name('confi
 Route::middleware(['auth:sanctum'])->group(function () {
     Route::get('order_details', [OrderDetailController::class, 'index'])->middleware('customRole:admin');
     Route::get('order_details/{id}', [OrderDetailController::class, 'show'])->middleware('checkBuyOrderAccess');
+    Route::put('order_details/{id}', [OrderDetailController::class, 'update'])->middleware('customRole:admin');
+    Route::delete('order_details/{id}', [OrderDetailController::class, 'destroy'])->middleware('customRole:admin');
 });
 
 
 
 //Rutas para las ordenes de despacho
 
-Route::prefix('shipping_order')->group(function () {
-    Route::get('/', [ShippingOrderController::class, 'index'])->middleware('auth:sanctum');
-    Route::get('/{shippingOrder_id}', [ShippingOrderController::class, 'show'])->middleware(['auth:sanctum', 'checkShippingOrderAccess']);
-    Route::patch('/{shippingOrder_id}', [ShippingOrderController::class, 'update'])->middleware('auth:sanctum');
+Route::middleware(['auth:sanctum'])->group(function () {
+    Route::prefix('shipping_order')->group(function () {
+        Route::get('/', [ShippingOrderController::class, 'index']);
+        Route::get('/{shippingOrder_id}', [ShippingOrderController::class, 'show']);//->middleware(['checkShippingOrderAccess']);
+        Route::patch('/{shippingOrder_id}', [ShippingOrderController::class, 'update'])->middleware(['customRole:employed']);
+        Route::delete('/{shippingOrder_id}', [ShippingOrderController::class, 'destroy'])->middleware('customRole:admin');
+    });
 });
-
