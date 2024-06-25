@@ -35,7 +35,10 @@ Los modulos disponibles son:
 - Acceda a Laragon e inicie todos los servicios.
 - En HeidiSQL acceda a Laragon.MySQL con el user root y password vacía.
 - Cree una base de datos con nombre "ferremas".
-- Desde el cmder acceda a la carpeta del proyecto (cd Api-Ferremas).
+- Desde el cmder acceda a la carpeta del proyecto.
+     ```bash
+    cd Api-Ferremas
+    ```
 - Ejecute el comando
   ```bash
     php artisan migrate
@@ -45,5 +48,7 @@ Los modulos disponibles son:
   ```bash
     php artisan db:seed
     ```
+- Ahora estás listo para probar los endpoints de nuestra api.
+  Puedes hacerlo desde tu herramienta favorita o ingresando al workspace con las pruebas que ya tenemos predefinidas en Postman en el siguiente [enlace](https://app.getpostman.com/join-team?invite_code=e0485397be8805dc5cc117a5b1027817&target_code=6b94da356bce630d636b53120882e533)
 
 
