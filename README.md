@@ -48,6 +48,10 @@ Los modulos disponibles son:
   ```bash
     php artisan db:seed
     ```
+- Ya puedes ejecutar el comando para que la app se ejecute en tu localhost
+  ```bash
+    php artisan serve
+    ```
 - Ahora estás listo para probar los endpoints de nuestra api.
   Puedes hacerlo desde tu herramienta favorita o ingresando al workspace con las pruebas que ya tenemos predefinidas en Postman en el siguiente [enlace](https://app.getpostman.com/join-team?invite_code=e0485397be8805dc5cc117a5b1027817&target_code=6b94da356bce630d636b53120882e533)
 
