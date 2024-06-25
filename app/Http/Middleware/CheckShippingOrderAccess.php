@@ -1,5 +1,4 @@
 <?php
-
 namespace App\Http\Middleware;
 
 use Closure;
@@ -11,13 +10,13 @@ class CheckShippingOrderAccess
 {
     public function handle(Request $request, Closure $next)
     {
-        // Verificar si el usuario está autenticado
-        if (!Auth::guard('api')->check()) {
+        // Verificar si el usuario está autenticado con Sanctum
+        if (!Auth::guard('sanctum')->check()) {
             return response()->json(['message' => 'Unauthorized - No Autenticado'], 403);
         }
 
         // Obtener el usuario autenticado
-        $user = Auth::guard('api')->user();
+        $user = Auth::guard('sanctum')->user();
         
         // Obtener el shipping order
         $shippingOrderId = $request->route('shippingOrder_id');
@@ -27,8 +26,8 @@ class CheckShippingOrderAccess
             return response()->json(['message' => 'Shipping Order no encontrado'], 404);
         }
 
-        // Verificar si el usuario tiene los roles 'worker' o 'admin'
-        if ($user->hasAnyRole(['worker', 'admin'])) {
+        // Verificar si el usuario tiene los roles 'employed' o 'admin'
+        if ($user->hasAnyRole(['employed', 'admin'])) {
             return $next($request);
         }
 

@@ -43,14 +43,15 @@ class ShippingOrderControllerTest extends TestCase
         $user = User::factory()->create();
         $user->assignRole('client');
         Sanctum::actingAs($user, ['*']);
-
+    
         $response = $this->getJson('/api/shipping_order/999');
-
+    
         $response->assertStatus(404)
                  ->assertJson([
-                     'message' => 'No query results for model [App\\Models\\ShippingOrder] 999',
+                     'message' => 'Shipping Order no encontrado',
                  ]);
     }
+    
 
     public function test_update_shipping_order_success()
     {
