@@ -20,7 +20,7 @@ class CreateUsersSeeder extends Seeder
         $adminRole = Role::firstOrCreate(['name' => 'admin', 'guard_name' => 'api']);
         
         // Crear rol de employeed si no existe
-        $employeedRole = Role::firstOrCreate(['name' => 'employeed', 'guard_name' => 'api']);
+        $employeedRole = Role::firstOrCreate(['name' => 'employed', 'guard_name' => 'api']);
         
         // Crear rol de client si no existe
         $clientRole = Role::firstOrCreate(['name' => 'client', 'guard_name' => 'api']);
@@ -35,7 +35,7 @@ class CreateUsersSeeder extends Seeder
 
         // Crear usuario con rol employeed
         $employeed = User::create([
-            'name' => 'employeed',
+            'name' => 'employed',
             'email' => 'employed@test.com',
             'password' => Hash::make('123456'),
         ]);

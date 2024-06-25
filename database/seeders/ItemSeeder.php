@@ -51,7 +51,7 @@ class ItemSeeder extends Seeder
                     'name' => $itemName,
                     'description' => 'Descripción de ' . $itemName,
                     'category_id' => $category->id,
-                    'price' => rand(10, 500), // Precio aleatorio entre 10 y 500
+                    'price' => rand(990, 100000), // Precio aleatorio entre 10 y 500
                 ]);
             }
         }

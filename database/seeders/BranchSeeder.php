@@ -16,11 +16,11 @@ class BranchSeeder extends Seeder
     {
         $branches = [
             [
-                'name' => 'Sucursal Puente Alto',
+                'name' => 'Puente Alto',
                 'address' => 'Puente Alto',
             ],
             [
-                'name' => 'Sucursal La Florida',
+                'name' => 'La Florida',
                 'address' => 'La Florida',
             ],
         ];

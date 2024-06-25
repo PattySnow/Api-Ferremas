@@ -39,7 +39,7 @@ Route::post('/revoke_all_tokens', [AuthController::class, 'revokeAllTokens'])->m
 //Rutas para usuarios
 
 Route::middleware(['auth:sanctum'])->group(function () {
-    Route::get('users', [UserController::class, 'index']); //obtiene los usuarios registrados
+    Route::get('users', [UserController::class, 'index'])->middleware('customRole:admin'); //obtiene los usuarios registrados
     Route::get('users/{id}', [UserController::class, 'show']); //obtiene a un usuario en especifico
     Route::put('users/{id}', [UserController::class, 'update']); //actualiza los datos del usuario (Nombre y contraseña)
     Route::delete('users/{id}', [UserController::class, 'destroy']); //elimina a un usuario
