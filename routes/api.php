@@ -160,7 +160,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
 Route::middleware(['auth:sanctum'])->group(function () {
     Route::prefix('shipping_order')->group(function () {
         Route::get('/', [ShippingOrderController::class, 'index']);
-        Route::get('/{shippingOrder_id}', [ShippingOrderController::class, 'show']);//->middleware(['checkShippingOrderAccess']);
+        Route::get('/{shippingOrder_id}', [ShippingOrderController::class, 'show'])->middleware(['checkShippingOrderAccess']);
         Route::patch('/{shippingOrder_id}', [ShippingOrderController::class, 'update'])->middleware(['customRole:employed']);
         Route::delete('/{shippingOrder_id}', [ShippingOrderController::class, 'destroy'])->middleware('customRole:admin');
     });
