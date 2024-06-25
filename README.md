@@ -53,6 +53,10 @@ La API de Ferremas está diseñada para facilitar la operación de un e-commerce
   ```bash
     php artisan db:seed
     ```
+-Una vez lista la base de datos puedes ejecutar la api en tu localhost
+```bash
+    php artisan serve
+    ```
 - Ahora estás listo para probar los endpoints de nuestra api.
   Puedes hacerlo desde Postman o tu herramienta de preferencia.
 
