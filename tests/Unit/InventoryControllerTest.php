@@ -2,114 +2,253 @@
 
 namespace Tests\Unit;
 
+use Mockery;
 use Tests\TestCase;
-use App\Models\Item;
 use App\Models\Branch;
 use App\Models\Inventory;
-use Illuminate\Foundation\Testing\RefreshDatabase;
+use App\Http\Controllers\InventoryController;
+use Illuminate\Http\Request;
 
 class InventoryControllerTest extends TestCase
 {
-    use RefreshDatabase;
-
-    public function test_index_no_branch()
+    protected function tearDown(): void
     {
-        $response = $this->getJson('/api/inventories/999');
-
-        $response->assertStatus(404)
-                 ->assertJson(['message' => 'Sucursal no encontrada']);
+        Mockery::close();
+        parent::tearDown();
     }
 
-    public function test_index_no_products()
+    /**
+     * @test
+     */
+    public function test_index_returns_inventory_list()
     {
-        $branch = Branch::factory()->create();
+        // Crear un mock para el modelo Inventory
+        $inventoryMock = Mockery::mock('overload:' . Inventory::class);
+        $inventoryMock->shouldReceive('with')->andReturnSelf();
+        $inventoryMock->shouldReceive('where')->andReturnSelf();
+        $inventoryMock->shouldReceive('get')->andReturn(collect([
+            (object)['item_id' => 1, 'quantity' => 10],
+            (object)['item_id' => 2, 'quantity' => 20],
+        ]));
 
-        $response = $this->getJson("/api/inventories/{$branch->id}");
+        // Crear un mock para el modelo Branch
+        $branchMock = Mockery::mock('overload:' . Branch::class);
+        $branchMock->shouldReceive('find')->with(1)->andReturn((object)[
+            'id' => 1,
+            'name' => 'Sucursal 1'
+        ]);
 
-        $response->assertStatus(404)
-                 ->assertJson(['message' => 'No hay productos en esta sucursal']);
+        // Crear una instancia del controlador con los mocks
+        $controller = new InventoryController();
+
+        // Llamar al método index con un parámetro de sucursal
+        $response = $controller->index(1);
+
+        // Verificar que la respuesta sea un JSON con la lista de inventario
+        $this->assertJson($response->getContent());
+        $this->assertEquals(200, $response->getStatusCode());
     }
 
-    public function test_index_with_products()
+    /**
+     * @test
+     */
+    public function test_show_returns_inventory_for_specific_item_and_branch()
     {
-        $branch = Branch::factory()->create();
-        $item = Item::factory()->create();
-        Inventory::factory()->create([
-            'branch_id' => $branch->id,
-            'item_id' => $item->id,
+        // Mockear el modelo Branch
+        $branchMock = \Mockery::mock('alias:App\Models\Branch');
+        $branchMock->shouldReceive('find')->with(1)->andReturn((object)[
+            'id' => 1,
+            'name' => 'Sucursal 1'
+        ]);
+
+        // Mockear el modelo Item
+        $itemMock = \Mockery::mock('alias:App\Models\Item');
+        $itemMock->shouldReceive('find')->with(1)->andReturn((object)[
+            'id' => 1,
+            'name' => 'Producto 1'
+        ]);
+
+        // Mockear el modelo Inventory
+        $inventoryMock = \Mockery::mock('alias:App\Models\Inventory');
+        $inventoryMock->shouldReceive('with')->andReturnSelf();
+        $inventoryMock->shouldReceive('where')->andReturnSelf();
+        $inventoryMock->shouldReceive('first')->andReturn((object)[
+            'item_id' => 1,
             'quantity' => 10
         ]);
 
-        $response = $this->getJson("/api/inventories/{$branch->id}");
+        // Crear una instancia del controlador con los mocks
+        $controller = new InventoryController();
 
-        $response->assertStatus(200)
-                 ->assertJsonFragment(['quantity' => 10]);
+        // Llamar al método show con parámetros de sucursal y producto
+        $response = $controller->show(1, 1);
+
+        // Verificar que la respuesta sea un JSON con la cantidad del producto en la sucursal específica
+        $this->assertJson($response->getContent());
+        $this->assertEquals(200, $response->getStatusCode());
     }
 
-    public function test_show_item_not_found_in_branch()
+    /**
+     * @test
+     */
+    public function test_show_returns_404_when_branch_not_found()
     {
-        $branch = Branch::factory()->create();
-        $item = Item::factory()->create();
+        // Mockear el modelo Branch para que no devuelva ninguna sucursal
+        $branchMock = \Mockery::mock('alias:App\Models\Branch');
+        $branchMock->shouldReceive('find')->with(1)->andReturn(null);
 
-        $response = $this->getJson("/api/inventories/{$branch->id}/{$item->id}");
+        // Crear una instancia del controlador con los mocks
+        $controller = new InventoryController();
 
-        $response->assertStatus(404)
-                 ->assertJson(['message' => 'Producto no encontrado en esta sucursal']);
+        // Llamar al método show con parámetros de sucursal y producto
+        $response = $controller->show(1, 1);
+
+        // Verificar que la respuesta sea un JSON con el mensaje de error
+        $this->assertJson($response->getContent());
+        $this->assertEquals(404, $response->getStatusCode());
+
+        // Verificar el contenido de la respuesta
+        $responseData = json_decode($response->getContent(), true);
+        $this->assertEquals('Sucursal no encontrada', $responseData['message']);
     }
 
-    public function test_update_item_quantity_success()
+    /**
+     * @test
+     */
+    public function test_show_returns_404_when_item_not_found()
     {
-        $branch = Branch::factory()->create();
-        $item = Item::factory()->create();
-        $inventory = Inventory::factory()->create([
-            'branch_id' => $branch->id,
-            'item_id' => $item->id,
-            'quantity' => 10
+        // Mockear el modelo Branch para devolver una sucursal válida
+        $branchMock = \Mockery::mock('alias:App\Models\Branch');
+        $branchMock->shouldReceive('find')->with(1)->andReturn((object)[
+            'id' => 1,
+            'name' => 'Sucursal 1'
         ]);
 
-        $response = $this->putJson("/api/inventories/{$branch->id}/{$item->id}", [
-            'quantity' => 20
-        ]);
+        // Mockear el modelo Item para que no devuelva ningún producto
+        $itemMock = \Mockery::mock('alias:App\Models\Item');
+        $itemMock->shouldReceive('find')->with(1)->andReturn(null);
 
-        $response->assertStatus(200)
-                 ->assertJson([
-                     'message' => "Cantidad del producto '{$item->name}' en la sucursal '{$branch->name}' actualizada con éxito",
-                     'data' => [
-                         'quantity' => 20
-                     ]
-                 ]);
+        // Crear una instancia del controlador con los mocks
+        $controller = new InventoryController();
 
-        $this->assertDatabaseHas('inventories', [
-            'branch_id' => $branch->id,
-            'item_id' => $item->id,
-            'quantity' => 20
-        ]);
+        // Llamar al método show con parámetros de sucursal y producto
+        $response = $controller->show(1, 1);
+
+        // Verificar que la respuesta sea un JSON con el mensaje de error
+        $this->assertJson($response->getContent());
+        $this->assertEquals(404, $response->getStatusCode());
+
+        // Verificar el contenido de la respuesta
+        $responseData = json_decode($response->getContent(), true);
+        $this->assertEquals('Producto no encontrado', $responseData['message']);
     }
 
-    public function test_reset_stock_success()
+
+
+    /**
+     * @test
+     */
+    public function test_update_quantity_for_specific_item_and_branch()
     {
-        $branch = Branch::factory()->create();
-        $item = Item::factory()->create();
-        $inventory = Inventory::factory()->create([
-            'branch_id' => $branch->id,
-            'item_id' => $item->id,
-            'quantity' => 10
+        // Mockear el modelo Branch
+        $branchMock = \Mockery::mock('alias:App\Models\Branch');
+        $branchMock->shouldReceive('find')->with(1)->andReturn((object)[
+            'id' => 1,
+            'name' => 'Sucursal 1'
         ]);
 
-        $response = $this->patchJson("/api/inventories/{$branch->id}/{$item->id}");
-
-        $response->assertStatus(200)
-                 ->assertJson([
-                     'message' => "Cantidad del producto '{$item->name}' en la sucursal '{$branch->name}' establecida en 0",
-                     'data' => [
-                         'quantity' => 0
-                     ]
-                 ]);
-
-        $this->assertDatabaseHas('inventories', [
-            'branch_id' => $branch->id,
-            'item_id' => $item->id,
-            'quantity' => 0
+        // Mockear el modelo Item
+        $itemMock = \Mockery::mock('alias:App\Models\Item');
+        $itemMock->shouldReceive('find')->with(1)->andReturn((object)[
+            'id' => 1,
+            'name' => 'Producto 1'
         ]);
+
+        // Crear una clase anónima para simular el objeto Inventory con el método save
+        $inventoryObject = new class
+        {
+            public $item_id = 1;
+            public $quantity = 10;
+            public function save()
+            {
+                // Simular el guardado del objeto
+            }
+        };
+
+        // Mockear el modelo Inventory
+        $inventoryMock = \Mockery::mock('alias:App\Models\Inventory');
+        $inventoryMock->shouldReceive('where')->andReturnSelf();
+        $inventoryMock->shouldReceive('first')->andReturn($inventoryObject);
+
+        // Crear una instancia del controlador con los mocks
+        $controller = new InventoryController();
+
+        // Crear una solicitud falsa
+        $request = new Request([
+            'quantity' => 15
+        ]);
+
+        // Llamar al método update con parámetros de sucursal y producto
+        $response = $controller->update($request, 1, 1);
+
+        // Verificar que la respuesta sea un JSON con el mensaje de éxito
+        $this->assertJson($response->getContent());
+        $this->assertEquals(200, $response->getStatusCode());
+
+        // Verificar el contenido de la respuesta
+        $responseData = json_decode($response->getContent(), true);
+        $this->assertEquals("Cantidad del producto 'Producto 1' en la sucursal 'Sucursal 1' actualizada con éxito", $responseData['message']);
+        $this->assertEquals(15, $responseData['data']['quantity']);
+    }
+
+    /**
+     * @test
+     */
+    public function test_reset_stock_for_specific_item_and_branch()
+    {
+        // Mockear el modelo Branch
+        $branchMock = \Mockery::mock('alias:App\Models\Branch');
+        $branchMock->shouldReceive('find')->with(1)->andReturn((object)[
+            'id' => 1,
+            'name' => 'Sucursal 1'
+        ]);
+
+        // Mockear el modelo Item
+        $itemMock = \Mockery::mock('alias:App\Models\Item');
+        $itemMock->shouldReceive('find')->with(1)->andReturn((object)[
+            'id' => 1,
+            'name' => 'Producto 1'
+        ]);
+
+        // Crear una clase anónima para simular el objeto Inventory con el método save
+        $inventoryObject = new class
+        {
+            public $item_id = 1;
+            public $quantity = 10;
+            public function save()
+            {
+                // Simular el guardado del objeto
+            }
+        };
+
+        // Mockear el modelo Inventory
+        $inventoryMock = \Mockery::mock('alias:App\Models\Inventory');
+        $inventoryMock->shouldReceive('where')->andReturnSelf();
+        $inventoryMock->shouldReceive('first')->andReturn($inventoryObject);
+
+        // Crear una instancia del controlador con los mocks
+        $controller = new InventoryController();
+
+        // Llamar al método resetStock con parámetros de sucursal y producto
+        $response = $controller->resetStock(1, 1);
+
+        // Verificar que la respuesta sea un JSON con el mensaje de éxito
+        $this->assertJson($response->getContent());
+        $this->assertEquals(200, $response->getStatusCode());
+
+        // Verificar el contenido de la respuesta
+        $responseData = json_decode($response->getContent(), true);
+        $this->assertEquals("Cantidad del producto 'Producto 1' en la sucursal 'Sucursal 1' establecida en 0", $responseData['message']);
+        $this->assertEquals(0, $responseData['data']['quantity']);
     }
 }

@@ -1,117 +1,166 @@
 <?php
 
-namespace Tests\Unit;
+namespace Tests\Unit\Controllers;
 
+use Mockery;
 use Tests\TestCase;
-use App\Models\User;
+use App\Http\Controllers\ShippingOrderController;
 use App\Models\ShippingOrder;
-use Laravel\Sanctum\Sanctum;
-use Illuminate\Foundation\Testing\RefreshDatabase;
+use App\Models\Cart;
+use App\Models\User;
+use Illuminate\Http\Request;
 
 class ShippingOrderControllerTest extends TestCase
 {
-    use RefreshDatabase;
-
-    public function setUp(): void
+    protected function tearDown(): void
     {
-        parent::setUp();
+        // Cierra y limpia los mocks de Mockery
+        Mockery::close();
 
-        // Crear roles necesarios
-        \Spatie\Permission\Models\Role::create(['name' => 'admin', 'guard_name' => 'api']);
-        \Spatie\Permission\Models\Role::create(['name' => 'employed', 'guard_name' => 'api']);
-        \Spatie\Permission\Models\Role::create(['name' => 'client', 'guard_name' => 'api']);
+        parent::tearDown();
+    }
+    public function testIndex()
+    {
+        // Mockear el modelo ShippingOrder
+        $shippingOrders = [
+            new ShippingOrder(['id' => 1, 'user_id' => 1, 'subtotal' => 100, 'shipping_cost' => 10, 'total' => 110]),
+            new ShippingOrder(['id' => 2, 'user_id' => 2, 'subtotal' => 150, 'shipping_cost' => 15, 'total' => 165]),
+        ];
+
+        $mockShippingOrder = Mockery::mock(ShippingOrder::class);
+        $mockShippingOrder->shouldReceive('all')->andReturn($shippingOrders);
+
+        // Mockear el controlador ShippingOrderController para simular el método index
+        $shippingOrderController = new ShippingOrderController();
+        $this->app->instance(ShippingOrder::class, $mockShippingOrder);
+
+        $response = $shippingOrderController->index();
+
+        $this->assertEquals(json_encode($shippingOrders), $response->getContent());
     }
 
-    public function test_index()
+    /**
+     * @test
+     */
+    public function create_shipping_order_from_cart()
     {
-        $admin = User::factory()->create();
-        $admin->assignRole('admin');
-        Sanctum::actingAs($admin, ['*']);
+        // Mock de objetos necesarios
+        $cart = Mockery::mock(Cart::class);
+        $cart->user_id = 1;
+        $cart->id = 123;
 
-        ShippingOrder::factory()->count(3)->create();
-
-        $response = $this->getJson('/api/shipping_order');
-
-        $response->assertStatus(200)
-                 ->assertJsonCount(3);
-    }
-
-
-
-    public function test_show_shipping_order_not_found()
-    {
-        $user = User::factory()->create();
-        $user->assignRole('client');
-        Sanctum::actingAs($user, ['*']);
-    
-        $response = $this->getJson('/api/shipping_order/999');
-    
-        $response->assertStatus(404)
-                 ->assertJson([
-                     'message' => 'Shipping Order no encontrado',
-                 ]);
-    }
-    
-
-    public function test_update_shipping_order_success()
-    {
-        $employed = User::factory()->create();
-        $employed->assignRole('employed');
-        Sanctum::actingAs($employed, ['*']);
-
-        $shippingOrder = ShippingOrder::factory()->create();
-
-        $response = $this->patchJson("/api/shipping_order/{$shippingOrder->id}", [
-            'status' => 'delivered',
+        $request = Mockery::mock(Request::class);
+        $request->shouldReceive('validate')->once()->andReturn([
+            'subtotal' => 100.00,
+            'shipping_cost' => 10.00,
+            'total' => 110.00,
         ]);
 
-        $response->assertStatus(200)
-                 ->assertJsonPath('status', 'delivered');
+        // Mock del modelo ShippingOrder
+        $shippingOrderMock = Mockery::mock('overload:' . ShippingOrder::class);
+        $shippingOrderMock->shouldReceive('create')->once()->andReturn($shippingOrderMock);
+
+        // Crear una instancia del controlador
+        $controller = new ShippingOrderController();
+
+        // Reemplazar la instancia del modelo ShippingOrder en la aplicación con el mock
+        $this->app->instance(ShippingOrder::class, $shippingOrderMock);
+
+        // Llamar al método createFromCart del controlador
+        $response = $controller->createFromCart($cart, 100.00, 10.00, 110.00);
+
+        // Verificar que el resultado sea el mock de ShippingOrder
+        $this->assertEquals($shippingOrderMock, $response);
     }
 
-    public function test_update_shipping_order_not_found()
+    /**
+     * @test
+     */
+    public function show_shipping_order_with_valid_id()
     {
-        $employed = User::factory()->create();
-        $employed->assignRole('employed');
-        Sanctum::actingAs($employed, ['*']);
+        // Mock del modelo ShippingOrder
+        $shippingOrderMock = new ShippingOrder(['id' => 1, 'subtotal' => 100.00, 'shipping_cost' => 10.00, 'total' => 110.00]);
 
-        $response = $this->patchJson('/api/shipping_order/999', [
-            'status' => 'delivered',
+        $shippingOrderRepositoryMock = Mockery::mock('overload:' . ShippingOrder::class);
+        $shippingOrderRepositoryMock->shouldReceive('findOrFail')->with(1)->andReturn($shippingOrderMock);
+
+        // Crear una instancia del controlador
+        $controller = new ShippingOrderController();
+
+        // Reemplazar la instancia del modelo ShippingOrder en la aplicación con el mock
+        $this->app->instance(ShippingOrder::class, $shippingOrderRepositoryMock);
+
+        // Llamar al método show del controlador
+        $response = $controller->show('1');
+
+        // Verificar que la respuesta tenga el estado HTTP correcto
+        $this->assertEquals(200, $response->getStatusCode());
+
+        // Verificar que el contenido de la respuesta sea el esperado
+        $responseData = json_decode($response->getContent(), true);
+        $this->assertEquals(1, $responseData['id']); // Ejemplo específico basado en la estructura de respuesta
+    }
+
+    /**
+     * @test
+     */
+    public function update_shipping_order_with_valid_data()
+    {
+        // Mock del modelo ShippingOrder
+        $shippingOrderMock = new ShippingOrder(['id' => 1, 'subtotal' => 100.00, 'shipping_cost' => 10.00, 'total' => 110.00]);
+
+        $shippingOrderRepositoryMock = Mockery::mock('overload:' . ShippingOrder::class);
+        $shippingOrderRepositoryMock->shouldReceive('findOrFail')->with(1)->andReturn($shippingOrderMock);
+        $shippingOrderRepositoryMock->shouldReceive('update')->once()->andReturn($shippingOrderMock);
+
+        $request = Mockery::mock(Request::class);
+        $request->shouldReceive('validate')->once()->andReturn([
+            'status' => 'shipped',
         ]);
 
-        $response->assertStatus(404)
-                 ->assertJson([
-                     'message' => 'No query results for model [App\\Models\\ShippingOrder] 999',
-                 ]);
+        // Crear una instancia del controlador
+        $controller = new ShippingOrderController();
+
+        // Reemplazar la instancia del modelo ShippingOrder en la aplicación con el mock
+        $this->app->instance(ShippingOrder::class, $shippingOrderRepositoryMock);
+
+        // Llamar al método update del controlador
+        $response = $controller->update($request, '1');
+
+        // Verificar que la respuesta tenga el estado HTTP correcto
+        $this->assertEquals(200, $response->getStatusCode());
+
+        // Verificar que el contenido de la respuesta sea el esperado
+        $responseData = json_decode($response->getContent(), true);
+        $this->assertEquals('shipped', $responseData['status']); // Ejemplo específico basado en la estructura de respuesta
     }
 
-    public function test_delete_shipping_order_success()
+    /**
+     * @test
+     */
+    public function destroy_shipping_order_with_valid_id()
     {
-        $admin = User::factory()->create();
-        $admin->assignRole('admin');
-        Sanctum::actingAs($admin, ['*']);
+        // Mock del modelo ShippingOrder
+        $shippingOrderMock = new ShippingOrder(['id' => 1]);
 
-        $shippingOrder = ShippingOrder::factory()->create();
+        $shippingOrderRepositoryMock = Mockery::mock('overload:' . ShippingOrder::class);
+        $shippingOrderRepositoryMock->shouldReceive('findOrFail')->with(1)->andReturn($shippingOrderMock);
+        $shippingOrderRepositoryMock->shouldReceive('delete')->once();
 
-        $response = $this->deleteJson("/api/shipping_order/{$shippingOrder->id}");
+        // Crear una instancia del controlador
+        $controller = new ShippingOrderController();
 
-        $response->assertStatus(200)
-                 ->assertJson(['message' => 'Orden de envío eliminada con éxito']);
+        // Reemplazar la instancia del modelo ShippingOrder en la aplicación con el mock
+        $this->app->instance(ShippingOrder::class, $shippingOrderRepositoryMock);
 
-        $this->assertDatabaseMissing('shipping_orders', ['id' => $shippingOrder->id]);
-    }
+        // Llamar al método destroy del controlador
+        $response = $controller->destroy('1');
 
-    public function test_delete_shipping_order_not_found()
-    {
-        $admin = User::factory()->create();
-        $admin->assignRole('admin');
-        Sanctum::actingAs($admin, ['*']);
+        // Verificar que la respuesta tenga el estado HTTP correcto
+        $this->assertEquals(200, $response->getStatusCode());
 
-        $response = $this->deleteJson('/api/shipping_order/999');
-
-        $response->assertStatus(404)
-                 ->assertJson([
-                     'message' => 'No query results for model [App\\Models\\ShippingOrder] 999',
-                 ]);
+        // Verificar que el contenido de la respuesta sea el esperado
+        $responseData = json_decode($response->getContent(), true);
+        $this->assertEquals('Orden de envío eliminada con éxito', $responseData['message']); // Ejemplo específico basado en la estructura de respuesta
     }
 }

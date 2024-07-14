@@ -15,6 +15,7 @@ class BranchController extends Controller
     public function __construct(AddItemsToBranchesService $addItemsToBranchesService)
     {
         $this->addItemsToBranchesService = $addItemsToBranchesService;
+        
     }
 
     public function index()
@@ -65,10 +66,12 @@ class BranchController extends Controller
 
         $data = [
             'mensaje' => 'Sucursal creada exitosamente y productos asociados con cantidad de inventario 0',
-            'sucursal' => $branch,
+            'sucursal' => $branch->toArray(),
             'status' => 201
         ];
+
         return response()->json($data, 201);
+        
     }
 
    

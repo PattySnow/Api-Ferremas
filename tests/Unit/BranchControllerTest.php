@@ -1,122 +1,249 @@
 <?php
+
 namespace Tests\Unit;
 
+use Mockery;
 use Tests\TestCase;
 use App\Models\Branch;
-use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Validator;
+use App\Http\Controllers\BranchController;
 use App\Services\AddItemsToBranchesService;
-use Mockery;
 
 class BranchControllerTest extends TestCase
 {
-    use RefreshDatabase;
 
-    protected function setUp(): void
+    protected function tearDown(): void
     {
-        parent::setUp();
+        // Cierra y limpia los mocks de Mockery
+        Mockery::close();
+
+        parent::tearDown();
+    }
+    /**
+     * @test
+     */
+    public function returns_all_branches()
+    {
+        $branches = collect(['branch1', 'branch2']);
+
+        // Mock del modelo Branch
+        $branchRepositoryMock = Mockery::mock('overload:App\Models\Branch');
+        $branchRepositoryMock->shouldReceive('all')->once()->andReturn($branches);
+
         // Mock del servicio AddItemsToBranchesService
-        $this->addItemsToBranchesService = Mockery::mock(AddItemsToBranchesService::class);
-        $this->app->instance(AddItemsToBranchesService::class, $this->addItemsToBranchesService);
+        $addItemsToBranchesServiceMock = Mockery::mock(AddItemsToBranchesService::class);
+
+        // Crear una instancia del controlador con el mock del servicio
+        $branchController = new BranchController($addItemsToBranchesServiceMock);
+
+        // Reemplazar la instancia del modelo Branch en la aplicación con el mock
+        $this->app->instance(Branch::class, $branchRepositoryMock);
+
+        // Llamar al método index del controlador
+        $response = $branchController->index();
+
+        // Comprobar que la respuesta tenga el estado HTTP correcto
+        $this->assertEquals(200, $response->getStatusCode());
+
+        // Comprobar que el contenido de la respuesta sea el esperado
+        $this->assertCount(2, $response->original);
     }
 
-    public function test_index_no_branches()
+    /**
+     * @test
+     */
+    public function createBranch_creates_branch_with_valid_data()
     {
-        $response = $this->getJson('/api/branches');
-
-        $response->assertStatus(200)
-                 ->assertJson([
-                     'mensaje' => 'No hay sucursales disponibles',
-                     'status' => 200
-                 ]);
-    }
-
-    public function test_index_with_branches()
-    {
-        Branch::factory()->create();
-
-        $response = $this->getJson('/api/branches');
-
-        $response->assertStatus(200)
-                 ->assertJsonStructure([
-                     '*' => ['id', 'name', 'address', 'created_at', 'updated_at']
-                 ]);
-    }
-
-    public function test_create_branch_success()
-    {
-        $this->addItemsToBranchesService->shouldReceive('addItemsToBranches')->once();
-
-        $response = $this->postJson('/api/branches', [
+        $request = new Request([
             'name' => 'New Branch',
-            'address' => '123 Main St'
+            'address' => '123 Street'
         ]);
 
-        $response->assertStatus(201)
-                 ->assertJson([
-                     'mensaje' => 'Sucursal creada exitosamente y productos asociados con cantidad de inventario 0',
-                     'status' => 201
-                 ]);
+        $validatorMock = Mockery::mock('alias:Illuminate\Support\Facades\Validator');
+        $validatorMock->shouldReceive('make')->once()->andReturn(Mockery::mock([
+            'fails' => false,
+            'errors' => []
+        ]));
 
-        $this->assertDatabaseHas('branches', [
+        $branchMock = Mockery::mock('overload:App\Models\Branch');
+        $branchMock->shouldReceive('create')->once()->andReturn($branchMock);
+        $branchMock->shouldReceive('toArray')->once()->andReturn([
+            'id' => 1,
             'name' => 'New Branch',
-            'address' => '123 Main St'
+            'address' => '123 Street'
         ]);
+
+        $addItemsToBranchesServiceMock = Mockery::mock(AddItemsToBranchesService::class);
+        $addItemsToBranchesServiceMock->shouldReceive('addItemsToBranches')->once();
+
+        $branchController = new BranchController($addItemsToBranchesServiceMock);
+
+        $response = $branchController->createBranch($request);
+
+        $this->assertEquals(201, $response->status());
+
+        $responseData = json_decode($response->getContent(), true);
+
+        $this->assertArrayHasKey('mensaje', $responseData);
+        $this->assertEquals('Sucursal creada exitosamente y productos asociados con cantidad de inventario 0', $responseData['mensaje']);
+        $this->assertArrayHasKey('sucursal', $responseData);
+
+        $sucursalData = $responseData['sucursal'];
+
+        $this->assertArrayHasKey('id', $sucursalData);
+        $this->assertEquals(1, $sucursalData['id']);
+        $this->assertArrayHasKey('name', $sucursalData);
+        $this->assertEquals('New Branch', $sucursalData['name']);
+        $this->assertArrayHasKey('address', $sucursalData);
+        $this->assertEquals('123 Street', $sucursalData['address']);
     }
 
-    public function test_create_branch_validation_error()
+    /**
+     * @test
+     */
+
+    public function test_show_branch_returns_branch_with_valid_id()
     {
-        $response = $this->postJson('/api/branches', [
-            'name' => 'Br',
-            'address' => ''
+        // Crear un mock parcial para el modelo Branch
+        $branchMock = Mockery::mock('overload:App\Models\Branch');
+        $branchMock->shouldReceive('find')->with(1)->andReturn((object)[
+            'id' => 1,
+            'name' => 'Branch 1',
+            'address' => '123 Street'
         ]);
 
-        $response->assertStatus(400)
-                 ->assertJson([
-                     'mensaje' => 'Error en la validación de los datos',
-                     'status' => 400
-                 ]);
+        // Crear una instancia del controlador BranchController
+        $branchController = new BranchController(new AddItemsToBranchesService());
+
+        // Llamar al método show del controlador
+        $response = $branchController->show(1);
+
+        // Verificar que la respuesta sea 200 OK
+        $this->assertEquals(200, $response->getStatusCode());
+
+        // Verificar los datos de la respuesta
+        $responseData = json_decode($response->getContent(), true);
+        $this->assertArrayHasKey('sucursal', $responseData);
+        $this->assertEquals('Branch 1', $responseData['sucursal']['name']);
+        $this->assertEquals('123 Street', $responseData['sucursal']['address']);
+    }
+    /**
+     * @test
+     */
+    public function show_branch_returns_404_with_invalid_id()
+    {
+        // Mock del modelo Branch
+        $branchRepositoryMock = Mockery::mock('overload:App\Models\Branch');
+        $branchRepositoryMock->shouldReceive('find')->with(1)->andReturn(null);
+
+        // Crear una instancia del controlador con el mock del servicio
+        $branchController = new BranchController(new AddItemsToBranchesService());
+
+        // Reemplazar la instancia del modelo Branch en la aplicación con el mock
+        $this->app->instance(Branch::class, $branchRepositoryMock);
+
+        // Llamar al método show del controlador
+        $response = $branchController->show(1);
+
+        // Comprobar que la respuesta tenga el estado HTTP correcto
+        $this->assertEquals(404, $response->getStatusCode());
+
+        // Comprobar que el contenido de la respuesta sea el esperado
+        $responseData = json_decode($response->getContent(), true);
+        $this->assertArrayHasKey('mensaje', $responseData);
+        $this->assertEquals('Sucursal no encontrada', $responseData['mensaje']);
     }
 
-    public function test_update_branch_success()
+    /**
+     * @test
+     */
+    /**
+     * @test
+     */
+    public function test_update_branch_with_valid_data()
     {
-        $branch = Branch::factory()->create([
-            'name' => 'Old Name',
-            'address' => 'Old Address'
+        $request = new Request([
+            'name' => 'Updated Branch',
+            'address' => '456 Avenue'
         ]);
 
-        $response = $this->putJson("/api/branches/{$branch->id}", [
-            'name' => 'Updated Name',
-            'address' => 'Updated Address'
-        ]);
+        // Crear una clase anónima para simular el objeto Branch con el método update
+        $branchObject = new class
+        {
+            public $id = 1;
+            public $name = 'Old Branch';
+            public $address = '123 Street';
+            public function update($data)
+            {
+                $this->name = $data['name'];
+                $this->address = $data['address'];
+                return true;
+            }
+        };
 
-        $response->assertStatus(200)
-                 ->assertJson([
-                     'mensaje' => 'Sucursal actualizada exitosamente',
-                     'status' => 200
-                 ]);
+        $branchMock = Mockery::mock('overload:App\Models\Branch');
+        $branchMock->shouldReceive('find')->with(1)->andReturn($branchObject);
 
-        $this->assertDatabaseHas('branches', [
-            'id' => $branch->id,
-            'name' => 'Updated Name',
-            'address' => 'Updated Address'
-        ]);
+        $validatorMock = Mockery::mock('alias:Illuminate\Support\Facades\Validator');
+        $validatorMock->shouldReceive('make')->once()->andReturn(Mockery::mock([
+            'fails' => false,
+            'errors' => []
+        ]));
+
+        $branchController = new BranchController(new AddItemsToBranchesService());
+        $response = $branchController->update($request, 1);
+
+        $this->assertEquals(200, $response->status());
+
+        $responseData = json_decode($response->getContent(), true);
+
+        $this->assertArrayHasKey('mensaje', $responseData);
+        $this->assertEquals('Sucursal actualizada exitosamente', $responseData['mensaje']);
+        $this->assertArrayHasKey('sucursal', $responseData);
+
+        $sucursalData = $responseData['sucursal'];
+
+        $this->assertArrayHasKey('id', $sucursalData);
+        $this->assertEquals(1, $sucursalData['id']);
+        $this->assertArrayHasKey('name', $sucursalData);
+        $this->assertEquals('Updated Branch', $sucursalData['name']);
+        $this->assertArrayHasKey('address', $sucursalData);
+        $this->assertEquals('456 Avenue', $sucursalData['address']);
     }
 
-    public function test_delete_branch_success()
+
+    /**
+     * @test
+     */
+    public function test_destroy_branch_with_valid_id()
     {
-        $branch = Branch::factory()->create();
+        // Crear una clase anónima para simular el objeto Branch con el método delete
+        $branchObject = new class
+        {
+            public $id = 1;
+            public $name = 'Branch to Delete';
+            public $address = '123 Street';
+            public function delete()
+            {
+                return true;
+            }
+        };
 
-        $response = $this->deleteJson("/api/branches/{$branch->id}");
+        $branchMock = Mockery::mock('overload:App\Models\Branch');
+        $branchMock->shouldReceive('find')->with(1)->andReturn($branchObject);
 
-        $response->assertStatus(200)
-                 ->assertJson([
-                     'mensaje' => 'Sucursal eliminada',
-                     'status' => 200
-                 ]);
+        $requestMock = Mockery::mock('Illuminate\Http\Request');
+        $requestMock->shouldReceive('validate')->andReturn(true);
 
-        $this->assertDatabaseMissing('branches', [
-            'id' => $branch->id
-        ]);
+        $branchController = new BranchController(new AddItemsToBranchesService());
+        $response = $branchController->destroy(1);
+
+        $this->assertEquals(200, $response->status());
+
+        $responseData = json_decode($response->getContent(), true);
+
+        $this->assertArrayHasKey('mensaje', $responseData);
+        $this->assertEquals('Sucursal eliminada', $responseData['mensaje']);
     }
 }

@@ -127,4 +127,6 @@ class InventoryController extends Controller
             'data' => $inventory
         ]);
     }
+
+    
 }

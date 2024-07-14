@@ -13,8 +13,10 @@ use Illuminate\Http\JsonResponse;
 
 class AuthController extends Controller
 {
-    private function registerUser(Request $request, $roleName): JsonResponse
+    public function registerUser(Request $request): JsonResponse
     {
+        \Log::info('Register method called');
+
         $validator = Validator::make($request->all(), [
             'name' => 'required|string|max:255',
             'email' => 'required|string|email|max:255|unique:users',
@@ -22,6 +24,7 @@ class AuthController extends Controller
         ]);
 
         if ($validator->fails()) {
+            \Log::info('Validation failed', ['errors' => $validator->errors()]);
             return response()->json([
                 'success' => false,
                 'message' => 'Validation errors',
@@ -35,12 +38,16 @@ class AuthController extends Controller
             'email' => $request->email,
             'password' => Hash::make($request->password),
         ]);
+        \Log::info('User created', ['user' => $user]);
 
         // Asignar el rol al usuario
-        $role = Role::where('name', $roleName)->where('guard_name', 'api')->first();
+        $role = Role::where('name', 'client')->where('guard_name', 'api')->first();
+        \Log::info('Role retrieved', ['role' => $role]);
+
         if ($role) {
             $user->assignRole($role);
         } else {
+            \Log::info('Role not found');
             return response()->json(['error' => 'Role not found'], 404);
         }
 

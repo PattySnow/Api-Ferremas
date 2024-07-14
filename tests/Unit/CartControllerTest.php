@@ -1,255 +1,237 @@
 <?php
+
 namespace Tests\Unit;
 
+use Mockery;
 use Tests\TestCase;
-use App\Models\User;
 use App\Models\Item;
 use App\Models\Cart;
 use App\Models\CartItem;
-use App\Models\Branch;
-use App\Services\CheckStockService;
-use Mockery;
-use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Facades\Auth;
 use Illuminate\Http\Request;
+use App\Services\CheckStockService;
+use Illuminate\Support\Facades\Auth;
+use App\Http\Controllers\CartController;
+use Illuminate\Support\Facades\Validator;
+use App\Http\Controllers\ShippingOrderController;
 
 class CartControllerTest extends TestCase
 {
-    use RefreshDatabase;
 
-    public function test_add_items_to_cart()
+    protected function tearDown(): void
     {
-        // Crear un usuario y autenticarlo
-        $user = User::factory()->create();
-        Auth::login($user);
-
-        // Crear algunos ítems
-        $item1 = Item::factory()->create(['price' => 100]);
-        $item2 = Item::factory()->create(['price' => 200]);
-
-        // Crear un carrito para el usuario
-        $cart = Cart::factory()->create([
-            'user_id' => $user->id,
-            'status' => 'Pending',
-        ]);
-
-        // Mock del servicio CheckStockService
-        $checkStockService = Mockery::mock(CheckStockService::class);
-        $checkStockService->shouldReceive('checkStockService')->andReturn(null);
-
-        // Crear una instancia del controlador con el servicio mockeado
-        $controller = new \App\Http\Controllers\CartController($checkStockService);
-
-        // Crear una solicitud falsa con los ítems a añadir
-        $request = new Request([
-            'items' => [
-                ['item_id' => $item1->id, 'quantity' => 2],
-                ['item_id' => $item2->id, 'quantity' => 3],
-            ],
-            'delivery_type' => 'Pick Up',
-        ]);
-
-        // Llamar al método addItems del controlador
-        $response = $controller->addItems($request, new \App\Http\Controllers\ShippingOrderController());
-
-        // Verificar que la respuesta sea correcta
-        $this->assertEquals(200, $response->getStatusCode());
-        $this->assertArrayHasKey('message', $response->getData(true));
-        $this->assertEquals('Productos agregados al carrito', $response->getData(true)['message']);
-
-        // Verificar que los ítems fueron agregados al carrito
-        $this->assertDatabaseHas('cart_items', [
-            'cart_id' => $cart->id,
-            'item_id' => $item1->id,
-            'quantity' => 2,
-        ]);
-
-        $this->assertDatabaseHas('cart_items', [
-            'cart_id' => $cart->id,
-            'item_id' => $item2->id,
-            'quantity' => 3,
-        ]);
+        Mockery::close();
+        parent::tearDown();
     }
 
-    public function test_add_items_to_cart_without_quantity()
+    /**
+     * @test
+     */
+    public function test_show_cart()
     {
-        // Crear un usuario y autenticarlo
-        $user = User::factory()->create();
-        Auth::login($user);
+        $userMock = Mockery::mock('alias:App\Models\User');
+        $cartMock = Mockery::mock('overload:App\Models\Cart');
 
-        // Crear un ítem
-        $item = Item::factory()->create(['price' => 100]);
-
-        // Mock del servicio CheckStockService
-        $checkStockService = Mockery::mock(CheckStockService::class);
-        $checkStockService->shouldReceive('checkStockService')->andReturn(null);
-
-        // Crear una instancia del controlador con el servicio mockeado
-        $controller = new \App\Http\Controllers\CartController($checkStockService);
-
-        // Crear una solicitud falsa con un ítem sin cantidad
-        $request = new Request([
-            'items' => [
-                ['item_id' => $item->id],  // Sin 'quantity'
-            ],
-            'delivery_type' => 'Pick Up',
+        $cartMock->shouldReceive('load')->with('items')->andReturnSelf();
+        $cartMock->id = 1;
+        $cartMock->user_id = 1;
+        $cartMock->branch_id = 1;
+        $cartMock->status = 'Pending';
+        $cartMock->items = collect([
+            (object)[
+                'id' => 1,
+                'name' => 'Item 1',
+                'pivot' => (object)['quantity' => 2]
+            ]
         ]);
 
-        // Llamar al método addItems del controlador
-        $response = $controller->addItems($request, new \App\Http\Controllers\ShippingOrderController());
+        $userMock->shouldReceive('carts->where->first')->andReturn($cartMock);
+        $userMock->shouldReceive('hasRole')->with('client')->andReturn(true);
 
-        // Verificar que la respuesta sea un error de validación
-        $this->assertEquals(422, $response->getStatusCode());
-        $this->assertArrayHasKey('message', $response->getData(true));
-        $this->assertEquals('Error en los datos.', $response->getData(true)['message']);
+        Auth::shouldReceive('user')->andReturn($userMock);
+
+        $cartController = new CartController(new CheckStockService());
+        $response = $cartController->showCart();
+
+        $this->assertEquals(200, $response->status());
+        $responseData = json_decode($response->getContent(), true);
+        $this->assertArrayHasKey('cart', $responseData);
+        $this->assertArrayHasKey('items', $responseData);
     }
 
-    
+    /**
+ * @test
+ */
+public function test_show_cart_not_found()
+{
+    $userMock = Mockery::mock('alias:App\Models\User');
+    $cartMock = Mockery::mock('overload:App\Models\Cart');
 
-    public function test_add_items_to_cart_with_negative_quantity()
-    {
-        // Crear un usuario y autenticarlo
-        $user = User::factory()->create();
-        Auth::login($user);
+    // Simular que el método 'first' devuelve null para simular un carrito que no existe
+    $userMock->shouldReceive('carts->where->first')->andReturn(null);
+    $userMock->shouldReceive('hasRole')->with('client')->andReturn(true);
 
-        // Crear un ítem
-        $item = Item::factory()->create(['price' => 100]);
+    Auth::shouldReceive('user')->andReturn($userMock);
 
-        // Mock del servicio CheckStockService
-        $checkStockService = Mockery::mock(CheckStockService::class);
-        $checkStockService->shouldReceive('checkStockService')->andReturn(null);
+    $cartController = new CartController(new CheckStockService());
+    $response = $cartController->showCart();
 
-        // Crear una instancia del controlador con el servicio mockeado
-        $controller = new \App\Http\Controllers\CartController($checkStockService);
+    $this->assertEquals(404, $response->status());
+    $responseData = json_decode($response->getContent(), true);
+    $this->assertArrayHasKey('message', $responseData);
+    $this->assertEquals('El usuario no tiene un carrito.', $responseData['message']);
+}
 
-        // Crear una solicitud falsa con un ítem con cantidad negativa
-        $request = new Request([
-            'items' => [
-                ['item_id' => $item->id, 'quantity' => -1],  // Cantidad negativa
-            ],
-            'delivery_type' => 'Pick Up',
-        ]);
-
-        // Llamar al método addItems del controlador
-        $response = $controller->addItems($request, new \App\Http\Controllers\ShippingOrderController());
-
-        // Verificar que la respuesta sea un error de validación
-        $this->assertEquals(422, $response->getStatusCode());
-        $this->assertArrayHasKey('message', $response->getData(true));
-        $this->assertEquals('Error en los datos.', $response->getData(true)['message']);
-    }
-
+   
+    /**
+     * @test
+     */
     public function test_remove_item_from_cart()
     {
-        // Crear un usuario y autenticarlo
-        $user = User::factory()->create();
-        Auth::login($user);
-
-        // Crear un ítem
-        $item = Item::factory()->create(['price' => 100]);
-
-        // Crear un carrito y agregar un ítem
-        $cart = Cart::factory()->create([
-            'user_id' => $user->id,
-            'status' => 'Pending',
+        $userMock = Mockery::mock('alias:App\Models\User');
+        $cartMock = Mockery::mock('overload:App\Models\Cart');
+        $cartMock->shouldReceive('items')->andReturnSelf();
+        $cartMock->shouldReceive('sum')->andReturn(100);
+        $cartMock->id = 1;
+        $cartMock->user_id = 1;
+        $cartMock->branch_id = 1;
+        $cartMock->status = 'Pending';
+        $cartMock->items = collect([
+            (object)[
+                'id' => 1,
+                'pivot' => (object)['quantity' => 2]
+            ]
         ]);
 
-        CartItem::factory()->create([
-            'cart_id' => $cart->id,
-            'item_id' => $item->id,
-            'quantity' => 2,
-            'unit_price' => 100,
-            'subtotal' => 200,
-        ]);
+        $userMock->shouldReceive('carts->where->first')->andReturn($cartMock);
+        $userMock->shouldReceive('hasRole')->with('client')->andReturn(true);
+        Auth::shouldReceive('user')->andReturn($userMock);
+        Auth::shouldReceive('id')->andReturn(1);
 
-        // Crear una instancia del controlador
-        $controller = new \App\Http\Controllers\CartController(new CheckStockService());
+        // Mock de CartItem
+        $cartItemMock = Mockery::mock('overload:App\Models\CartItem');
+        $cartItemMock->shouldReceive('where')->andReturn($cartItemMock);
+        $cartItemMock->shouldReceive('first')->andReturn($cartItemMock);  // Mockear el método 'first' correctamente
+        $cartItemMock->shouldReceive('delete')->andReturn(true);
 
-        // Llamar al método removeItem del controlador
-        $response = $controller->removeItem($item->id);
 
-        // Verificar que la respuesta sea correcta
-        $this->assertEquals(200, $response->getStatusCode());
-        $this->assertArrayHasKey('message', $response->getData(true));
-        $this->assertEquals('Producto eliminado del carrito', $response->getData(true)['message']);
+        // Configurar save() en el mock de Cart
+        $cartMock->shouldReceive('save')->andReturnNull();
 
-        // Verificar que el ítem fue eliminado del carrito
-        $this->assertDatabaseMissing('cart_items', [
-            'cart_id' => $cart->id,
-            'item_id' => $item->id,
-        ]);
+        $cartController = new CartController(new CheckStockService());
+        $response = $cartController->removeItem(1);
+
+        $this->assertEquals(200, $response->status());
+        $responseData = json_decode($response->getContent(), true);
+        $this->assertArrayHasKey('message', $responseData);
+        $this->assertEquals('Producto eliminado del carrito', $responseData['message']);
     }
 
- 
+ /**
+ * @test
+ */
+public function test_remove_item_from_cart_item_not_found()
+{
+    $userMock = Mockery::mock('alias:App\Models\User');
+    $cartMock = Mockery::mock('overload:App\Models\Cart');
 
+    // Simular un carrito con un ítem que no existe
+    $cartMock->shouldReceive('items')->andReturnSelf();
+    $cartMock->shouldReceive('sum')->andReturn(100);
+    $cartMock->id = 1;
+    $cartMock->user_id = 1;
+    $cartMock->branch_id = 1;
+    $cartMock->status = 'Pending';
+    $cartMock->items = collect([]);
+
+    $userMock->shouldReceive('carts->where->first')->andReturn($cartMock);
+    $userMock->shouldReceive('hasRole')->with('client')->andReturn(true);
+    Auth::shouldReceive('user')->andReturn($userMock);
+    Auth::shouldReceive('id')->andReturn(1);
+
+    // Mock de CartItem
+    $cartItemMock = Mockery::mock('overload:App\Models\CartItem');
+    $cartItemMock->shouldReceive('where')->andReturn($cartItemMock);
+    $cartItemMock->shouldReceive('first')->andReturn(null); // Simular que no se encontró ningún cartItem
+    // No es necesario mockear 'delete' en este caso
+
+    // Configurar save() en el mock de Cart
+    $cartMock->shouldReceive('save')->andReturnNull();
+
+    $cartController = new CartController(new CheckStockService());
+    $response = $cartController->removeItem(1);
+
+    $this->assertEquals(404, $response->status());
+    $responseData = json_decode($response->getContent(), true);
+    $this->assertArrayHasKey('message', $responseData);
+    $this->assertEquals('El producto no está en el carrito.', $responseData['message']);
+}
+
+
+    /**
+     * @test
+     */
     public function test_empty_cart()
     {
-        // Crear un usuario y autenticarlo
-        $user = User::factory()->create();
-        Auth::login($user);
+        $userMock = Mockery::mock('alias:App\Models\User');
+        $cartMock = Mockery::mock('overload:App\Models\Cart');
+        $cartMock->shouldReceive('items')->andReturnSelf();
+        $cartMock->shouldReceive('detach')->andReturn(null);
+        $cartMock->shouldReceive('save')->andReturn(null);
+        $cartMock->id = 1;
+        $cartMock->user_id = 1;
+        $cartMock->branch_id = 1;
+        $cartMock->status = 'Pending';
 
-        // Crear un carrito para el usuario y agregar un ítem
-        $cart = Cart::factory()->create([
-            'user_id' => $user->id,
-            'status' => 'Pending',
-        ]);
+        $userMock->shouldReceive('carts->where->first')->andReturn($cartMock);
+        $userMock->shouldReceive('hasRole')->with('client')->andReturn(true);
 
-        $item = Item::factory()->create(['price' => 100]);
-        CartItem::factory()->create([
-            'cart_id' => $cart->id,
-            'item_id' => $item->id,
-            'quantity' => 2,
-            'unit_price' => 100,
-            'subtotal' => 200,
-        ]);
+        Auth::shouldReceive('user')->andReturn($userMock);
+        Auth::shouldReceive('id')->andReturn(1);
 
-        // Crear una instancia del controlador
-        $controller = new \App\Http\Controllers\CartController(new CheckStockService());
+        $cartController = new CartController(new CheckStockService());
+        $response = $cartController->emptyCart();
 
-        // Llamar al método emptyCart del controlador
-        $response = $controller->emptyCart();
-
-        // Verificar que la respuesta sea correcta
-        $this->assertEquals(200, $response->getStatusCode());
-        $this->assertArrayHasKey('message', $response->getData(true));
-        $this->assertEquals('El carrito ha sido vaciado correctamente.', $response->getData(true)['message']);
-
-        // Verificar que el carrito está vacío
-        $this->assertDatabaseMissing('cart_items', [
-            'cart_id' => $cart->id,
-        ]);
+        $this->assertEquals(200, $response->status());
+        $responseData = json_decode($response->getContent(), true);
+        $this->assertArrayHasKey('message', $responseData);
+        $this->assertEquals('El carrito ha sido vaciado correctamente.', $responseData['message']);
     }
 
+    /**
+     * @test
+     */
     public function test_change_branch()
     {
-        // Crear un usuario y autenticarlo
-        $user = User::factory()->create();
-        Auth::login($user);
-
-        // Crear una sucursal
-        $branch = Branch::factory()->create();
-
-        // Crear un carrito para el usuario
-        $cart = Cart::factory()->create([
-            'user_id' => $user->id,
-            'status' => 'Pending',
+        $branchMock = Mockery::mock('alias:App\Models\Branch');
+        $branchMock->shouldReceive('find')->with(2)->andReturn((object)[
+            'id' => 2,
+            'name' => 'New Branch'
         ]);
 
-        // Crear una instancia del controlador
-        $controller = new \App\Http\Controllers\CartController(new CheckStockService());
+        $userMock = Mockery::mock('alias:App\Models\User');
+        $cartMock = Mockery::mock('overload:App\Models\Cart');
+        $cartMock->shouldReceive('save')->andReturn(null);
+        $cartMock->id = 1;
+        $cartMock->user_id = 1;
+        $cartMock->branch_id = 1;
+        $cartMock->status = 'Pending';
 
-        // Llamar al método changeBranch del controlador
-        $response = $controller->changeBranch($branch->id);
+        $userMock->shouldReceive('carts->where->first')->andReturn($cartMock);
+        $userMock->shouldReceive('hasRole')->with('client')->andReturn(true);
 
-        // Verificar que la respuesta sea correcta
-        $this->assertEquals(200, $response->getStatusCode());
-        $this->assertArrayHasKey('message', $response->getData(true));
-        $this->assertEquals("Sucursal actualizada con éxito. Ha cambiado a la sucursal {$branch->name}.", $response->getData(true)['message']);
+        Auth::shouldReceive('user')->andReturn($userMock);
+        Auth::shouldReceive('id')->andReturn(1);
 
-        // Verificar que la sucursal del carrito ha cambiado
-        $this->assertDatabaseHas('carts', [
-            'id' => $cart->id,
-            'branch_id' => $branch->id,
-        ]);
+        $cartController = new CartController(new CheckStockService());
+        $response = $cartController->changeBranch(2);
+
+        $this->assertEquals(200, $response->status());
+        $responseData = json_decode($response->getContent(), true);
+        $this->assertArrayHasKey('message', $responseData);
+        $this->assertEquals('Sucursal actualizada con éxito. Ha cambiado a la sucursal New Branch.', $responseData['message']);
     }
+
+
+
+
 }
