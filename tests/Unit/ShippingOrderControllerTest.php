@@ -4,11 +4,12 @@ namespace Tests\Unit\Controllers;
 
 use Mockery;
 use Tests\TestCase;
-use App\Http\Controllers\ShippingOrderController;
-use App\Models\ShippingOrder;
 use App\Models\Cart;
 use App\Models\User;
 use Illuminate\Http\Request;
+use App\Models\ShippingOrder;
+use App\Http\Controllers\ShippingOrderController;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 
 class ShippingOrderControllerTest extends TestCase
 {
@@ -134,6 +135,38 @@ class ShippingOrderControllerTest extends TestCase
         $responseData = json_decode($response->getContent(), true);
         $this->assertEquals('shipped', $responseData['status']); // Ejemplo específico basado en la estructura de respuesta
     }
+
+    /**
+     * @test
+     */
+    public function update_shipping_order_with_non_existent_id()
+    {
+        // Mock para lanzar excepción cuando el ID no existe
+        $shippingOrderRepositoryMock = Mockery::mock('overload:' . ShippingOrder::class);
+        $shippingOrderRepositoryMock->shouldReceive('findOrFail')->with(999)->andThrow(ModelNotFoundException::class);
+
+        $request = Mockery::mock(Request::class);
+        $request->shouldReceive('validate')->once()->andReturn([
+            'status' => 'shipped',
+        ]);
+
+        // Crear una instancia del controlador
+        $controller = new ShippingOrderController();
+
+        // Reemplazar la instancia del modelo ShippingOrder en la aplicación con el mock
+        $this->app->instance(ShippingOrder::class, $shippingOrderRepositoryMock);
+
+        // Llamar al método update del controlador
+        $response = $controller->update($request, '999');
+
+        // Verificar que la respuesta tenga el estado HTTP de error correcto
+        $this->assertEquals(404, $response->getStatusCode());
+
+        // Verificar que el contenido de la respuesta sea el esperado
+        $responseData = json_decode($response->getContent(), true);
+        $this->assertEquals('No se encontró la orden de envío', $responseData['message']); // Mensaje específico basado en la estructura de respuesta
+    }
+
 
     /**
      * @test

@@ -4,8 +4,6 @@ namespace Tests\Unit;
 
 use Mockery;
 use Tests\TestCase;
-use App\Models\Role;
-use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 use App\Http\Controllers\RoleController;

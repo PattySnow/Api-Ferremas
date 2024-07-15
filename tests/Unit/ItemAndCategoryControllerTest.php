@@ -4,13 +4,11 @@ namespace Tests\Unit;
 
 use Mockery;
 use Tests\TestCase;
-use App\Models\Item;
-use App\Models\Category;
 use Illuminate\Http\Request;
 use App\Services\AddItemWithoutStockService;
 use App\Http\Controllers\ItemController;
 use App\Http\Controllers\CategoryController;
-use Illuminate\Support\Facades\Validator;
+
 
 class ItemAndCategoryControllerTest extends TestCase
 {
@@ -59,7 +57,10 @@ class ItemAndCategoryControllerTest extends TestCase
      */
     public function test_show_item_with_valid_id()
     {
+        // Crear un mock del modelo Item
         $itemMock = Mockery::mock('alias:App\Models\Item');
+
+        // Configurar el mock para que devuelva un objeto específico cuando se llama a find(1)
         $itemMock->shouldReceive('find')->with(1)->andReturn((object)[
             'id' => 1,
             'name' => 'Item 1',
@@ -68,17 +69,27 @@ class ItemAndCategoryControllerTest extends TestCase
             'category_id' => 1
         ]);
 
+        // Crear una instancia del controlador
         $itemController = new ItemController(new AddItemWithoutStockService());
+
+        // Llamar al método show del controlador con el ID 1
         $response = $itemController->show(1);
 
+        // Verificar que el estado de la respuesta sea 200
         $this->assertEquals(200, $response->status());
 
+        // Decodificar la respuesta JSON
         $responseData = json_decode($response->getContent(), true);
 
+        // Verificar que la clave producto exista en la respuesta
         $this->assertArrayHasKey('producto', $responseData);
-        $this->assertEquals('Item 1', $responseData['producto']['name']);
-    }
 
+        // Verificar que los valores del producto sean correctos
+        $this->assertEquals('Item 1', $responseData['producto']['name']);
+        $this->assertEquals('Description', $responseData['producto']['description']);
+        $this->assertEquals(100, $responseData['producto']['price']);
+        $this->assertEquals(1, $responseData['producto']['category_id']);
+    }
     /**
      * @test
      */

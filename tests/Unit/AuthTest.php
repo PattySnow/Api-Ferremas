@@ -9,7 +9,7 @@ use App\Models\User;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\UserController;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Foundation\Testing\WithoutMiddleware;
+
 
 class AuthTest extends TestCase
 {
